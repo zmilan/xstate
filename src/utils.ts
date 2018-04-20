@@ -1,5 +1,6 @@
 import { State } from './State';
 import { Event, StateValue, EventType } from './types';
+import { StateNode } from '.';
 
 export function getEventType(event: Event): EventType {
   try {
@@ -14,17 +15,17 @@ export function getEventType(event: Event): EventType {
 }
 
 export function toStatePath(
-  stateId: string | string[],
+  stringPath: string | string[],
   delimiter: string
 ): string[] {
   try {
-    if (Array.isArray(stateId)) {
-      return stateId;
+    if (Array.isArray(stringPath)) {
+      return stringPath;
     }
 
-    return stateId.toString().split(delimiter);
+    return stringPath.toString().split(delimiter);
   } catch (e) {
-    throw new Error(`'${stateId}' is not a valid state path.`);
+    throw new Error(`'${stringPath}' is not a valid state path.`);
   }
 }
 
@@ -94,20 +95,56 @@ export const path = (props: string[]): any => <T extends Record<string, any>>(
   return result;
 };
 
-export const toStatePaths = (stateValue: StateValue): string[][] => {
+export const stateValueToPaths = (stateValue: StateValue): string[][] => {
   if (typeof stateValue === 'string') {
     return [[stateValue]];
   }
 
   const result = Object.keys(stateValue)
     .map(key => {
-      return toStatePaths(stateValue[key]).map(subPath => {
+      return stateValueToPaths(stateValue[key]).map(subPath => {
         return [key].concat(subPath);
       });
     })
     .reduce((a, b) => a.concat(b), []);
 
   return result;
+};
+
+export type InnerStateValueTraversal<T> = Array<string | T>;
+// tslint:disable-next-line:no-empty-interface
+export interface StateValueTraversal
+  extends InnerStateValueTraversal<StateValueTraversal> {}
+
+export const traverseStateValue = (
+  stateValue: StateValue,
+  stateNode: StateNode
+): StateValueTraversal => {
+  if (typeof stateValue === 'string') {
+    return [stateNode.id, [stateNode.states[stateValue].id]];
+  }
+
+  const [firstKey, ...otherKeys] = Object.keys(stateValue);
+
+  if (!otherKeys.length) {
+    const traversal = traverseStateValue(
+      stateValue[firstKey],
+      stateNode.states[firstKey]
+    );
+    return [stateNode.id, traversal];
+    // return [keys[0], traversal];
+  }
+
+  return [
+    stateNode.key,
+    [firstKey].concat(otherKeys).map(key => {
+      const traversal = traverseStateValue(
+        stateValue[key],
+        stateNode.states[key]
+      );
+      return traversal;
+    })
+  ];
 };
 
 export const pathsToStateValue = (paths: string[][]): StateValue => {

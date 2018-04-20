@@ -120,13 +120,16 @@ describe('deep history states', () => {
         'on.second.B.Q'
       );
     });
-    it('can go to the shallow histor even when $history.$history is used', () => {
-      const stateOff = historyMachine.transition(state2A, 'POWER');
-      assert.equal(
-        historyMachine.transition(stateOff, 'DEEPEST_POWER').toString(),
-        'on.second.A'
-      );
-    });
+    xit(
+      'can go to the shallow history even when $history.$history is used',
+      () => {
+        const stateOff = historyMachine.transition(state2A, 'POWER');
+        assert.equal(
+          historyMachine.transition(stateOff, 'DEEPEST_POWER').toString(),
+          'on.second.A'
+        );
+      }
+    );
   });
 });
 

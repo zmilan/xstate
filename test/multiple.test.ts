@@ -1,7 +1,7 @@
 import { assert } from 'chai';
 import { Machine } from '../src/index';
 
-describe('multiple', () => {
+describe.only('multiple', () => {
   const machine = Machine({
     key: 'machine',
     initial: 'simple',
