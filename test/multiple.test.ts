@@ -165,6 +165,7 @@ describe.only('multiple', () => {
     it('should reject two targets in the same region', () => {
       assert.throws(
         () => machine.transition(stateSimple, 'BROKEN_SAME_REGION'),
+        // tslint:disable-next-line:max-line-length
         "Event 'BROKEN_SAME_REGION' on state 'machine.simple' leads to an invalid configuration: Two or more states in the orthogonal region 'machine.para.A'"
       );
     });

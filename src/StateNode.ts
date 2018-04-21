@@ -326,7 +326,55 @@ class StateNode implements StateNodeConfig {
       return [stateNode!.id];
     }
 
-    return [];
+    const transition = this.on[eventType]!;
+
+    // TODO: remove
+    const extendedState = {};
+    let nextStateStrings: string[] = [];
+
+    const candidates = Array.isArray(transition)
+      ? transition
+      : Object.keys(transition).map(key => ({
+          ...transition[key],
+          target: key
+        }));
+
+    for (const candidate of candidates) {
+      const {
+        cond,
+        in: stateIn,
+        actions: transitionActions
+      } = candidate as TransitionConfig;
+      const extendedStateObject = extendedState || {};
+      const eventObject = toEventObject(event);
+
+      const isInState = stateIn
+        ? matchesState(
+            toStateValue(stateIn, this.delimiter),
+            path(this.path.slice(0, -2))(fullState.value)
+          )
+        : true;
+
+      if (
+        (!cond || cond(extendedStateObject, eventObject)) &&
+        (!stateIn || isInState)
+      ) {
+        nextStateStrings = Array.isArray(candidate.target)
+          ? candidate.target
+          : [candidate.target];
+        if (transitionActions) {
+          // TODO: add back
+          // actionMap.actions = actionMap.actions.concat(transitionActions);
+        }
+        break;
+      }
+    }
+
+    return nextStateStrings.map(
+      stateString => this.parent!.getState(stateString)!.id
+    );
+
+    // return [];
   }
   public transition(
     state: StateValue | State,
