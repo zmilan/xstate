@@ -9,55 +9,35 @@ import {
   MachineOptions
 } from 'xstate';
 
-interface UseMachineOptions<TContext> {
-  /**
-   * If provided, will be merged with machine's context.
-   */
-  context?: TContext;
+interface UseMachineOptions {
   /**
    * If `true`, service will start immediately (before mount).
    */
   immediate: boolean;
 }
 
-const defaultOptions = {
+const defaultOptions: UseMachineOptions = {
   immediate: false
 };
 
 export function useMachine<TContext, TEvent extends EventObject>(
   machine: StateMachine<TContext, any, TEvent>,
   options: Partial<InterpreterOptions> &
-    Partial<UseMachineOptions<TContext>> &
+    Partial<UseMachineOptions> &
     Partial<MachineOptions<TContext, TEvent>> = defaultOptions
 ): [
   State<TContext, TEvent>,
   Interpreter<TContext, any, TEvent>['send'],
   Interpreter<TContext, any, TEvent>
 ] {
-  const {
-    context,
+  const { guards, actions, activities, services, delays } = options;
+  const customMachine = machine.withConfig({
     guards,
     actions,
     activities,
     services,
-    delays,
-    immediate,
-    ...interpreterOptions
-  } = options;
-
-  const customMachine = machine.withConfig(
-    {
-      guards,
-      actions,
-      activities,
-      services,
-      delays
-    },
-    {
-      ...machine.context,
-      ...context
-    } as TContext
-  );
+    delays
+  });
 
   // Reference the service
   const serviceRef = useRef<Interpreter<TContext, any, TEvent> | null>(null);
@@ -65,21 +45,20 @@ export function useMachine<TContext, TEvent extends EventObject>(
   // Create the service only once
   // See https://reactjs.org/docs/hooks-faq.html#how-to-create-expensive-objects-lazily
   if (serviceRef.current === null) {
-    serviceRef.current = interpret(
-      customMachine,
-      interpreterOptions
-    ).onTransition(state => {
-      // Update the current machine state when a transition occurs
-      if (state.changed) {
-        setCurrent(state);
+    serviceRef.current = interpret(customMachine, options).onTransition(
+      state => {
+        // Update the current machine state when a transition occurs
+        if (state.changed) {
+          setCurrent(state);
+        }
       }
-    });
+    );
   }
 
   const service = serviceRef.current;
 
   // Start service immediately (before mount) if specified in options
-  if (immediate) {
+  if (options && options.immediate) {
     service.start();
   }
 
@@ -109,24 +88,27 @@ export function useService<TContext, TEvent extends EventObject>(
 ] {
   const [current, setCurrent] = useState(service.state);
 
-  useEffect(() => {
-    // Set to current service state as there is a possibility
-    // of a transition occurring between the initial useState()
-    // initialization and useEffect() commit.
-    setCurrent(service.state);
+  useEffect(
+    () => {
+      // Set to current service state as there is a possibility
+      // of a transition occurring between the initial useState()
+      // initialization and useEffect() commit.
+      setCurrent(service.state);
 
-    const listener = state => {
-      if (state.changed) {
-        setCurrent(state);
-      }
-    };
+      const listener = state => {
+        if (state.changed) {
+          setCurrent(state);
+        }
+      };
 
-    service.onTransition(listener);
+      service.onTransition(listener);
 
-    return () => {
-      service.off(listener);
-    };
-  }, [service]);
+      return () => {
+        service.off(listener);
+      };
+    },
+    [service]
+  );
 
   return [current, service.send, service];
 }
